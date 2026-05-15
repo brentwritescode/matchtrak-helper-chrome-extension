@@ -1,0 +1,26 @@
+{
+  "name": "matchtrak-helper",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "build": "node build.js",
+    "dev": "node build.js --watch",
+    "type-check": "tsc --noEmit",
+    "lint": "eslint src",
+    "test": "jest",
+    "package": "npm run build && zip -r matchtrak-helper.zip manifest.json dist/content.js src/styles.css icons/ --exclude '*.DS_Store'"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.0.0",
+    "@types/chrome": "^0.0.300",
+    "@types/jest": "^29.0.0",
+    "@types/node": "^22.0.0",
+    "esbuild": "^0.25.0",
+    "eslint": "^9.0.0",
+    "jest": "^29.0.0",
+    "jest-environment-jsdom": "^29.0.0",
+    "ts-jest": "^29.0.0",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.0.0"
+  }
+}

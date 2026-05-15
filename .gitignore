@@ -1,0 +1,17 @@
+# JetBrains IDEs
+.idea/
+
+# macOS
+.DS_Store
+
+# Packaged extension
+*.zip
+
+# Build output
+dist/
+
+# Dependencies
+node_modules/
+
+# Claude Code local settings
+.claude/
