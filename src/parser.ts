@@ -120,8 +120,8 @@ function findArchivedGameRows(doc: Document): Element[] {
 function isDivisionToken(t: string): boolean {
   if (!t) return false;
   if (/^[A-Z]*U\d+$/i.test(t)) return true;
-  if (/^adult$/i.test(t)) return true;
-  return false;
+  return /^adult$/i.test(t);
+
 }
 
 function stripTags(s: string): string {

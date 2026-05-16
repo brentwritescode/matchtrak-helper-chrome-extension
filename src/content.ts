@@ -235,22 +235,22 @@ function collectExpandLinks(doc: Document): string[] {
 
 function renderShell(): string {
   const cols = BUCKETS.map(
-    (b) => `<td bgcolor="#C0C0C0"><font size="2" face="Calibri"><b>${escapeHtml(b)}</b></font></td>`
+    (b) => `<td style="background-color:#C0C0C0"><b>${escapeHtml(b)}</b></td>`
   ).join("");
   const span = BUCKETS.length + 2;
   return `
-    <table class="mthelper-header-table" width="100%" cellspacing="0" cellpadding="0" border="0">
-      <tr valign="top">
-        <td width="100%" bgcolor="#C0E1FF"><font size="2" face="Calibri"><img src="/icons/vwicn100.gif"> Lifetime Stats</font></td>
+    <table class="mthelper-header-table">
+      <tr>
+        <td style="background-color:#C0E1FF"><img src="/icons/vwicn100.gif" alt=""> Lifetime Stats</td>
       </tr>
     </table>
     <div class="mthelper-info-table-container"></div>
-    <table class="mthelper-stats-table" border="1" bordercolor="#efefef" cellpadding="3" cellspacing="0">
+    <table class="mthelper-stats-table">
       <thead>
         <tr>
-          <td bgcolor="#C0C0C0"></td>
+          <td style="background-color:#C0C0C0"></td>
           ${cols}
-          <td bgcolor="#C0C0C0"><font size="2" face="Calibri"><b>Total</b></font></td>
+          <td style="background-color:#C0C0C0"><b>Total</b></td>
         </tr>
       </thead>
       <tbody class="mthelper-body">
@@ -259,7 +259,7 @@ function renderShell(): string {
       <tfoot>
         <tr>
           <td colspan="${span - 1}" class="mthelper-note">Loading…</td>
-          <td align="right" style="white-space:nowrap;padding:2px 4px">
+          <td style="text-align:right;white-space:nowrap;padding:2px 4px">
             <button class="mthelper-refresh" title="Clear cache and reload from MatchTrak" style="font-size:11px;cursor:pointer">&#x21BA; Refresh</button>
           </td>
         </tr>
@@ -271,32 +271,30 @@ function renderShell(): string {
 }
 
 function renderBody(agg: AggResult): string {
-  const f = (content: string | number) => `<font size="2" face="Calibri">${content}</font>`;
-
   const rows = ROLES.map((role) => {
     const cells = BUCKETS.map((b) => {
       const n = agg.matrix[role][b];
       const display = n === 0 ? `<span class="mthelper-zero">—</span>` : n;
-      return `<td bgcolor="#EAF4FF" class="mthelper-num">${f(display)}</td>`;
+      return `<td style="background-color:#EAF4FF" class="mthelper-num">${display}</td>`;
     }).join("");
     return `
       <tr>
-        <td bgcolor="#C0C0C0">${f(`<b>${escapeHtml(role)}</b>`)}</td>
+        <td style="background-color:#C0C0C0"><b>${escapeHtml(role)}</b></td>
         ${cells}
-        <td bgcolor="#EAF4FF" class="mthelper-num">${f(`<b>${agg.rowTotals[role]}</b>`)}</td>
+        <td style="background-color:#EAF4FF" class="mthelper-num"><b>${agg.rowTotals[role]}</b></td>
       </tr>
     `;
   }).join("");
 
   const totalCells = BUCKETS.map(
-    (b) => `<td bgcolor="#EAF4FF" class="mthelper-num">${f(`<b>${agg.colTotals[b]}</b>`)}</td>`
+    (b) => `<td style="background-color:#EAF4FF" class="mthelper-num"><b>${agg.colTotals[b]}</b></td>`
   ).join("");
 
   return rows + `
     <tr>
-      <td bgcolor="#C0C0C0">${f("<b>Total</b>")}</td>
+      <td style="background-color:#C0C0C0"><b>Total</b></td>
       ${totalCells}
-      <td bgcolor="#C0E1FF" class="mthelper-num">${f(`<b>${agg.grand}</b>`)}</td>
+      <td style="background-color:#C0E1FF" class="mthelper-num"><b>${agg.grand}</b></td>
     </tr>
   `;
 }
@@ -365,15 +363,17 @@ function clearCache(url: string, refToken: string): void {
 
 async function fetchWithRetry(url: string): Promise<string> {
   for (let attempt = 0; ; attempt++) {
+    let err: unknown;
     let retriable = true;
     try {
       const r = await fetch(url, { credentials: "same-origin" });
       if (r.ok) return r.text();
       retriable = r.status === 429 || r.status >= 500;
-      throw new Error(`HTTP ${r.status}`);
-    } catch (err) {
-      if (!retriable || attempt >= MAX_RETRIES) throw err;
+      err = new Error(`HTTP ${r.status}`);
+    } catch (e) {
+      err = e;
     }
+    if (!retriable || attempt >= MAX_RETRIES) throw err;
     const cap = BASE_DELAY_MS * Math.pow(2, attempt);
     await new Promise((res) => setTimeout(res, Math.random() * cap));
   }
@@ -405,8 +405,8 @@ function timeActive(first: Date, last: Date): string {
 }
 
 function renderInfoTable(agg: AggResult, datesLoading = false): string {
-  const blank = `<img width="144" height="1" src="/icons/ecblank.gif" border="0" alt=""><br>`;
-  const sm = `<img width="1" height="1" src="/icons/ecblank.gif" border="0" alt=""><br>`;
+  const blank = `<img width="144" height="1" src="/icons/ecblank.gif" alt=""><br>`;
+  const sm = `<img width="1" height="1" src="/icons/ecblank.gif" alt=""><br>`;
 
   const firstStr = datesLoading ? "…" : (agg.firstDate ? formatDate(agg.firstDate) : "—");
   const lastStr = datesLoading ? "…" : (agg.lastDate ? formatDate(agg.lastDate) : "—");
@@ -416,13 +416,13 @@ function renderInfoTable(agg: AggResult, datesLoading = false): string {
     ["Date of First Game", firstStr],
     ["Date of Most Recent Game", lastStr],
     ["Active For", activeStr],
-  ].map(([key, val]) => `<tr valign="top">
-      <td width="1%" bgcolor="#E1E1E1">${blank}<font size="2" face="Calibri">${escapeHtml(key)}</font></td>
-      <td width="4%" bgcolor="#E1E1E1">${sm}</td>
-      <td width="96%">${sm}<font size="2" color="#0000ff" face="Calibri">${escapeHtml(val)}</font></td>
+  ].map(([key, val]) => `<tr style="vertical-align:top">
+      <td style="width:1%;background-color:#E1E1E1">${blank}${escapeHtml(key)}</td>
+      <td style="width:4%;background-color:#E1E1E1">${sm}</td>
+      <td style="width:96%;color:#0000ff">${sm}${escapeHtml(val)}</td>
     </tr>`).join("");
 
-  return `<table cellpadding="4" width="100%" border="0" cellspacing="0"><tbody>${rows}</tbody></table>`;
+  return `<table class="mthelper-info-table"><tbody>${rows}</tbody></table>`;
 }
 
 function escapeHtml(s: string | number): string {
