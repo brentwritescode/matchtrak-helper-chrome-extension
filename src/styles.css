@@ -8,14 +8,9 @@
   border-collapse: collapse;
 }
 
-.mthelper-stats .mthelper-header-table td {
-  font-size: small;
-  font-family: Calibri, sans-serif;
-}
-
 .mthelper-stats .mthelper-stats-table {
   margin-top: 8px;
-  width: 100%;
+  width: auto;
   border-collapse: collapse;
   border: 1px solid #efefef;
 }
@@ -24,6 +19,8 @@
   padding: 3px 20px;
   font-size: small;
   font-family: Calibri, sans-serif;
+  text-align: center;
+  border: 1px solid #efefef;
 }
 
 .mthelper-stats .mthelper-info-table {
@@ -38,8 +35,13 @@
 }
 
 .mthelper-stats .mthelper-num {
-  text-align: right;
+  text-align: center;
   font-variant-numeric: tabular-nums;
+}
+
+.mthelper-stats .mthelper-info-label {
+  font-weight: bold;
+  white-space: nowrap;
 }
 
 .mthelper-stats .mthelper-zero {

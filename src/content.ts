@@ -130,9 +130,22 @@ function main(): void {
         } catch (err) {
           console.warn(TAG, "active parse failed on refresh", err);
         }
+        // Capture any archived tabs already expanded inline on the refreshed page.
+        try {
+          for (const r of parseArchivedRows(freshDoc, refToken)) archivedRows.push(r);
+        } catch (err) {
+          console.warn(TAG, "inline archived parse failed on refresh", err);
+        }
         expandLinks = collectExpandLinks(freshDoc);
       } catch {
         errors += 1;
+      }
+    } else {
+      // Capture any archived tabs already expanded inline on the current page.
+      try {
+        for (const r of parseArchivedRows(document, refToken)) archivedRows.push(r);
+      } catch (err) {
+        console.warn(TAG, "inline archived parse failed", err);
       }
     }
 
@@ -235,7 +248,7 @@ function collectExpandLinks(doc: Document): string[] {
 
 function renderShell(): string {
   const cols = BUCKETS.map(
-    (b) => `<td style="background-color:#C0C0C0"><b>${escapeHtml(b)}</b></td>`
+    (b) => `<td style="background-color:#E1E1E1"><b>${escapeHtml(b)}</b></td>`
   ).join("");
   const span = BUCKETS.length + 2;
   return `
@@ -248,9 +261,9 @@ function renderShell(): string {
     <table class="mthelper-stats-table">
       <thead>
         <tr>
-          <td style="background-color:#C0C0C0"></td>
+          <td style="background-color:#EAF4FF"></td>
           ${cols}
-          <td style="background-color:#C0C0C0"><b>Total</b></td>
+          <td style="background-color:#E1E1E1"><b>Total</b></td>
         </tr>
       </thead>
       <tbody class="mthelper-body">
@@ -279,7 +292,7 @@ function renderBody(agg: AggResult): string {
     }).join("");
     return `
       <tr>
-        <td style="background-color:#C0C0C0"><b>${escapeHtml(role)}</b></td>
+        <td style="background-color:#E1E1E1"><b>${escapeHtml(role)}</b></td>
         ${cells}
         <td style="background-color:#EAF4FF" class="mthelper-num"><b>${agg.rowTotals[role]}</b></td>
       </tr>
@@ -292,7 +305,7 @@ function renderBody(agg: AggResult): string {
 
   return rows + `
     <tr>
-      <td style="background-color:#C0C0C0"><b>Total</b></td>
+      <td style="background-color:#E1E1E1"><b>Total</b></td>
       ${totalCells}
       <td style="background-color:#C0E1FF" class="mthelper-num"><b>${agg.grand}</b></td>
     </tr>
@@ -417,7 +430,7 @@ function renderInfoTable(agg: AggResult, datesLoading = false): string {
     ["Date of Most Recent Game", lastStr],
     ["Active For", activeStr],
   ].map(([key, val]) => `<tr style="vertical-align:top">
-      <td style="width:1%;background-color:#E1E1E1">${blank}${escapeHtml(key)}</td>
+      <td style="width:1%;background-color:#E1E1E1" class="mthelper-info-label">${blank}${escapeHtml(key)}</td>
       <td style="width:4%;background-color:#E1E1E1">${sm}</td>
       <td style="width:96%;color:#0000ff">${sm}${escapeHtml(val)}</td>
     </tr>`).join("");
