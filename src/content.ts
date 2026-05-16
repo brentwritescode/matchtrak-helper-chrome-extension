@@ -14,6 +14,7 @@ const ROOT_ID = "mthelper-root";
 const CACHE_TTL_MS = 14 * 24 * 60 * 60 * 1000; // 14 days
 const MAX_RETRIES = 3;
 const BASE_DELAY_MS = 1000;
+const CONCURRENCY = 15;
 
 if (!document.getElementById(ROOT_ID)) {
   main();
@@ -116,7 +117,6 @@ function main(): void {
     const archivedRows: GameRow[] = [];
     let errors = 0;
     let settled = 0;
-    const CONCURRENCY = 15;
 
     // On a forced refresh, re-fetch the current page so that activeRows and
     // expandLinks reflect any assignments or new seasons added since first load.
@@ -224,7 +224,7 @@ function collectExpandLinks(doc: Document): string[] {
     const href = a.getAttribute("href");
     if (!href) continue;
     if (!/[?&]Expand=\d+/i.test(href)) continue;
-    const base = doc.location ? doc.location.href : location.href;
+    const base = location.href;
     const abs = new URL(href, base).href;
     if (seen.has(abs)) continue;
     seen.add(abs);
@@ -321,6 +321,10 @@ function readCache(url: string, refToken: string): Promise<GameRow[] | null> {
   return new Promise((resolve) => {
     const key = cacheKey(url, refToken);
     chrome.storage.local.get(key, (result) => {
+      if (chrome.runtime.lastError) {
+        console.warn(TAG, "storage read error", chrome.runtime.lastError.message);
+        return resolve(null);
+      }
       const entry = result[key] as { rows: GameRow[]; cachedAt: number } | undefined;
       if (!entry) return resolve(null);
       if (Date.now() - entry.cachedAt > CACHE_TTL_MS) {
@@ -341,11 +345,22 @@ function readCache(url: string, refToken: string): Promise<GameRow[] | null> {
 function writeCache(url: string, refToken: string, rows: GameRow[]): void {
   // Serialize Date objects as timestamps — chrome.storage spreads them as {}, losing all data.
   const serialized = rows.map((r) => ({ ...r, date: r.date instanceof Date ? r.date.getTime() : null }));
-  chrome.storage.local.set({ [cacheKey(url, refToken)]: { rows: serialized, cachedAt: Date.now() } });
+  chrome.storage.local.set(
+    { [cacheKey(url, refToken)]: { rows: serialized, cachedAt: Date.now() } },
+    () => {
+      if (chrome.runtime.lastError) {
+        console.warn(TAG, "storage write error", chrome.runtime.lastError.message);
+      }
+    }
+  );
 }
 
 function clearCache(url: string, refToken: string): void {
-  chrome.storage.local.remove(cacheKey(url, refToken));
+  chrome.storage.local.remove(cacheKey(url, refToken), () => {
+    if (chrome.runtime.lastError) {
+      console.warn(TAG, "storage clear error", chrome.runtime.lastError.message);
+    }
+  });
 }
 
 async function fetchWithRetry(url: string): Promise<string> {

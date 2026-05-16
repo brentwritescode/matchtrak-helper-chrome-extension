@@ -171,8 +171,7 @@ export function extractDivisionPositionFromRow(tr: Element): { division: string;
 // We pick the first cell whose trimmed text matches a digit run of >= 3
 // chars and is not a date.
 function extractGameNum(tr: Element): string | null {
-  const tds = Array.from(tr.querySelectorAll("td"));
-  for (const td of tds) {
+  for (const td of directTds(tr)) {
     const t = cellText(td);
     if (/^\d{3,}$/.test(t)) return t;
   }
@@ -184,7 +183,7 @@ function extractGameNum(tr: Element): string | null {
 export function parseActiveRows(doc: Document): GameRow[] {
   const out: GameRow[] = [];
   for (const tr of findGameRows(doc)) {
-    const tds = tr.querySelectorAll("td");
+    const tds = directTds(tr);
     const pending = cellText(tds[tds.length - 1]);
     if (pending.length > 0) continue;
     const dp = extractDivisionPositionFromRow(tr);

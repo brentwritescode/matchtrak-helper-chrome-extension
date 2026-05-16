@@ -8,6 +8,8 @@ Pages targeted:
 
 - `https://www.matchtrak.com/*/referee.nsf/open-myref-profile/*` (own profile)
 - `https://www.matchtrak.com/*/referee.nsf/open/*` (admin view)
+- `https://matchtrak.com/*/referee.nsf/open-myref-profile/*` (own profile, non-www)
+- `https://matchtrak.com/*/referee.nsf/open/*` (admin view, non-www)
 
 ---
 
@@ -91,6 +93,7 @@ Open DevTools on a MatchTrak profile page (right-click → Inspect → Console).
 | `npm test` | Jest: runs all unit tests in `src/__tests__/` | After changing parser logic |
 | `npm run type-check` | `tsc --noEmit`: checks types across all files without emitting output | Before committing |
 | `npm run lint` | ESLint: checks code style and catches common mistakes | Before committing |
+| `npm run package` | Builds and zips the extension for Chrome Web Store submission | Before submitting for review |
 
 A typical pre-commit sequence:
 
@@ -168,7 +171,7 @@ Google accepts a **screen recording** as a substitute. Paste the following into 
 > When a referee profile page loads on matchtrak.com, the extension injects a "Lifetime Stats" table above the existing page content. It reads the current page's game data and fetches archived-month pages in parallel, then aggregates everything into a Role × Age-Group grid. All data stays local — nothing is transmitted off-device. Game data is cached in `chrome.storage.local` with a TTL and can be force-refreshed via the Refresh button.
 >
 > **Permissions used:**
-> - `host_permissions` scoped to `https://www.matchtrak.com/*` — required to fetch archived-month pages from the same origin
+> - `content_scripts` with `matches` targeting MatchTrak referee pages — the script runs in the page context and fetches archived-month pages using the user's existing MatchTrak session; no separate host permission is required
 > - `storage` — used only for the local cache
 
 ---
