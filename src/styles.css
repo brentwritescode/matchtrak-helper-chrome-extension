@@ -7,6 +7,10 @@
   margin-bottom: 4px;
 }
 
+.mthelper-stats .mthelper-stats-table {
+  margin-top: 8px;
+}
+
 .mthelper-stats .mthelper-stats-table td {
   padding: 3px 20px;
 }
@@ -33,4 +37,39 @@
   background: #FAFAFA;
   text-align: left;
   padding: 4px 8px;
+}
+
+.mthelper-stats .mthelper-loading-indicator {
+  display: none;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #555;
+  padding: 4px 8px;
+  margin-top: 4px;
+}
+
+.mthelper-stats .mthelper-spinner {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border: 2px solid #ccc;
+  border-top-color: #555;
+  border-radius: 50%;
+  animation: mthelper-spin 0.75s linear infinite;
+  flex-shrink: 0;
+}
+
+@keyframes mthelper-spin {
+  to { transform: rotate(360deg); }
+}
+
+.mthelper-stats .mthelper-warning {
+  display: none;
+  font-size: 12px;
+  color: #8a0000;
+  background: #fff3f3;
+  border: 1px solid #f5c6c6;
+  padding: 4px 8px;
+  margin-top: 4px;
 }

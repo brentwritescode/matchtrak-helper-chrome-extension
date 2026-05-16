@@ -182,6 +182,17 @@ The video should show:
 3. The Refresh button clearing the cache and reloading
 4. The Network tab (filtered to non-matchtrak.com destinations) confirming no data leaves the device
 
+**How to demonstrate step 4:**
+
+- Open DevTools (`F12` or `Cmd+Option+I`) and go to the **Network** tab
+- First show the tab unfiltered so reviewers can see all fetches go to matchtrak.com
+- Then type `-url:matchtrak.com` in the filter bar — this hides all matchtrak.com requests
+- The tab should be empty, proving no external calls are made to analytics, APIs, or third-party services
+
+**Note: `analytics.js` may still appear after filtering**
+
+Even with `-url:matchtrak.com` active, a single `analytics.js` row may remain. This is Google Analytics (`google-analytics.com`), loaded by the MatchTrak page itself — not by the extension. You can prove this on camera by clicking the **Initiator** link in that row: Chrome will open the Sources panel and highlight the `<script>` tag in the MatchTrak page's own HTML. If the extension were making the request, the Initiator would show a `chrome-extension://` URL. To suppress it from the demo view entirely, add a second filter term: `-url:matchtrak.com -url:google-analytics.com`.
+
 [Loom](https://www.loom.com) is a quick option for recording and hosting. Upload the link to the Test Instructions field before submitting for review.
 
 ---

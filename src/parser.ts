@@ -34,6 +34,15 @@ function cellText(td: Element | null | undefined): string {
   return (td?.textContent ?? "").replace(/\s+/g, " ").trim();
 }
 
+function parseDate(s: string): Date | null {
+  const m = /^(\d{1,2})\/(\d{1,2})\/(\d{2,4})/.exec(s);
+  if (!m) return null;
+  let year = parseInt(m[3], 10);
+  if (year < 100) year += 2000;
+  const d = new Date(year, parseInt(m[1], 10) - 1, parseInt(m[2], 10));
+  return isNaN(d.getTime()) ? null : d;
+}
+
 // Extract { first, last, token } for the referee whose profile is being viewed.
 // Admin page: <font size="4">Last, First ( Section / Area / Region )</font>
 // myref page: a label cell "Last Name" with adjacent value cell, same for "First Name".
@@ -180,7 +189,8 @@ export function parseActiveRows(doc: Document): GameRow[] {
     if (pending.length > 0) continue;
     const dp = extractDivisionPositionFromRow(tr);
     if (!dp) continue;
-    out.push({ gameNum: extractGameNum(tr), division: dp.division, role: dp.role });
+    const date = parseDate(cellText(tds[0]));
+    out.push({ gameNum: extractGameNum(tr), division: dp.division, role: dp.role, date });
   }
   return out;
 }
@@ -238,7 +248,16 @@ export function parseArchivedRows(doc: Document, refToken: string): GameRow[] {
     }
     if (!role) continue;
 
-    out.push({ gameNum, division, role });
+    let date: Date | null = null;
+    for (const td of tds) {
+      const html = (td as HTMLElement).innerHTML ?? "";
+      if (ARCHIVED_DATE_HTML.test(html)) {
+        date = parseDate(stripTags(html.split(/<br\s*\/?>/i)[0]).trim());
+        break;
+      }
+    }
+
+    out.push({ gameNum, division, role, date });
   }
   return out;
 }
@@ -250,8 +269,14 @@ export function aggregate(games: GameRow[]): AggResult {
     matrix[r] = {} as Record<Bucket, number>;
     for (const b of BUCKETS) matrix[r][b] = 0;
   }
+  let firstDate: Date | null = null;
+  let lastDate: Date | null = null;
   for (const g of games) {
     if (!g?.role || !ROLES.includes(g.role)) continue;
+    if (g.date) {
+      if (!firstDate || g.date < firstDate) firstDate = g.date;
+      if (!lastDate || g.date > lastDate) lastDate = g.date;
+    }
     const b = bucket(g.division);
     if (!b) continue;
     matrix[g.role][b] += 1;
@@ -268,7 +293,7 @@ export function aggregate(games: GameRow[]): AggResult {
       grand += matrix[r][b];
     }
   }
-  return { matrix, rowTotals, colTotals, grand };
+  return { matrix, rowTotals, colTotals, grand, firstDate, lastDate };
 }
 
 // Dedup an array of games by gameNum (rows without a gameNum are kept).

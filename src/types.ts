@@ -11,6 +11,7 @@ export interface GameRow {
   gameNum: string | null;
   division: string;
   role: Role;
+  date?: Date | null;
 }
 
 export type Matrix = Record<Role, Record<Bucket, number>>;
@@ -20,4 +21,6 @@ export interface AggResult {
   rowTotals: Record<Role, number>;
   colTotals: Record<Bucket, number>;
   grand: number;
+  firstDate: Date | null;
+  lastDate: Date | null;
 }

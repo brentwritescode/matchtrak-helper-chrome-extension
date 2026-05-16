@@ -187,6 +187,63 @@ describe("aggregate", () => {
     ];
     expect(aggregate(games).grand).toBe(0);
   });
+
+  it("returns null firstDate and lastDate when no games have dates", () => {
+    const games: GameRow[] = [
+      { gameNum: "1", division: "BU10", role: "Center" },
+      { gameNum: "2", division: "GU12", role: "AR" },
+    ];
+    const agg = aggregate(games);
+    expect(agg.firstDate).toBeNull();
+    expect(agg.lastDate).toBeNull();
+  });
+
+  it("tracks firstDate and lastDate across a mix of games", () => {
+    const oldest = new Date(2022, 0, 15);
+    const middle = new Date(2024, 4, 10);
+    const newest = new Date(2026, 1, 28);
+    const games: GameRow[] = [
+      { gameNum: "1", division: "BU10", role: "Center", date: middle },
+      { gameNum: "2", division: "GU12", role: "AR", date: oldest },
+      { gameNum: "3", division: "U14", role: "Center", date: newest },
+    ];
+    const agg = aggregate(games);
+    expect(agg.firstDate).toEqual(oldest);
+    expect(agg.lastDate).toEqual(newest);
+  });
+
+  it("archived date (older) wins over active date as firstDate", () => {
+    // Simulates the core scenario: active game is 2/28/2026, archived game is older.
+    // Both have proper Date objects (as readCache now rehydrates them).
+    const activeDate = new Date(2026, 1, 28);
+    const archivedDate = new Date(2022, 0, 15);
+    const games: GameRow[] = [
+      { gameNum: "active-1", division: "BU10", role: "Center", date: activeDate },
+      { gameNum: "archived-1", division: "GU12", role: "AR", date: archivedDate },
+    ];
+    const agg = aggregate(games);
+    expect(agg.firstDate).toEqual(archivedDate);
+    expect(agg.lastDate).toEqual(activeDate);
+  });
+
+  it("handles a single game with a date", () => {
+    const d = new Date(2024, 5, 1);
+    const games: GameRow[] = [{ gameNum: "1", division: "BU10", role: "Center", date: d }];
+    const agg = aggregate(games);
+    expect(agg.firstDate).toEqual(d);
+    expect(agg.lastDate).toEqual(d);
+  });
+
+  it("ignores null dates when other games have valid dates", () => {
+    const d = new Date(2024, 5, 1);
+    const games: GameRow[] = [
+      { gameNum: "1", division: "BU10", role: "Center", date: d },
+      { gameNum: "2", division: "GU12", role: "AR", date: null },
+    ];
+    const agg = aggregate(games);
+    expect(agg.firstDate).toEqual(d);
+    expect(agg.lastDate).toEqual(d);
+  });
 });
 
 // ---------- dedupByGameNum ----------
@@ -234,7 +291,7 @@ describe("parseActiveRows", () => {
     `);
     const rows = parseActiveRows(doc);
     expect(rows).toHaveLength(1);
-    expect(rows[0]).toEqual({ gameNum: "12345", division: "BU10", role: "Center" });
+    expect(rows[0]).toEqual({ gameNum: "12345", division: "BU10", role: "Center", date: new Date(2024, 4, 10) });
   });
 
   it("skips rows where the pending cell is non-empty", () => {
@@ -305,7 +362,7 @@ describe("parseArchivedRows", () => {
     const doc = archivedDoc("Center: Doe, John (REG)<br>AR1: Smith, John (REG)");
     const rows = parseArchivedRows(doc, "Doe, John");
     expect(rows).toHaveLength(1);
-    expect(rows[0]).toEqual({ gameNum: "67890", division: "BU12", role: "Center" });
+    expect(rows[0]).toEqual({ gameNum: "67890", division: "BU12", role: "Center", date: new Date(2024, 4, 10) });
   });
 
   it("extracts an AR role from the crew cell", () => {
