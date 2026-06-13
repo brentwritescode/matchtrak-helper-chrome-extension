@@ -1,7 +1,7 @@
 import type { Role, Bucket, RefereeInfo, GameRow, AggResult, Matrix } from "./types";
 
 export const ROLES: readonly Role[] = ["Center", "AR", "Mentor"];
-export const BUCKETS: readonly Bucket[] = ["U8", "U10", "U12", "U14", "U16", "U19"];
+export const BUCKETS: readonly Bucket[] = ["U8", "U10", "U12", "U14", "U16", "U19", "U99"];
 
 export function normalizeRole(label: string | null | undefined): Role | null {
   if (!label) return null;
@@ -26,7 +26,9 @@ export function bucket(division: string | null | undefined): Bucket | null {
   if (n <= 14) return "U14";
   if (n <= 16) return "U16";
   if (n <= 19) return "U19";
-  // Age groups above U19 are treated as Adult and skipped.
+  if (n === 99) return "U99";
+  // Age groups above U19 are treated as Adult and skipped unless MatchTrak
+  // uses its explicit U99 catch-all code.
   return null;
 }
 
@@ -261,7 +263,7 @@ export function parseArchivedRows(doc: Document, refToken: string): GameRow[] {
   return out;
 }
 
-// Build a 3x6 matrix of counts plus totals.
+// Build a Role x Bucket matrix of counts plus totals.
 export function aggregate(games: GameRow[]): AggResult {
   const matrix = {} as Matrix;
   for (const r of ROLES) {
@@ -295,16 +297,23 @@ export function aggregate(games: GameRow[]): AggResult {
   return { matrix, rowTotals, colTotals, grand, firstDate, lastDate };
 }
 
-// Dedup an array of games by gameNum (rows without a gameNum are kept).
+// Dedup exact game rows by gameNum + date + division + role. MatchTrak game
+// numbers are reused across years, so gameNum alone is not a stable key.
 export function dedupByGameNum(games: GameRow[]): GameRow[] {
   const seen = new Set<string>();
   const out: GameRow[] = [];
   for (const g of games) {
     if (g.gameNum) {
-      if (seen.has(g.gameNum)) continue;
-      seen.add(g.gameNum);
+      const key = dedupKey(g);
+      if (seen.has(key)) continue;
+      seen.add(key);
     }
     out.push(g);
   }
   return out;
+}
+
+function dedupKey(game: GameRow): string {
+  const date = game.date instanceof Date ? game.date.toISOString().slice(0, 10) : "";
+  return [game.gameNum, date, game.division, game.role].join("\u0000");
 }

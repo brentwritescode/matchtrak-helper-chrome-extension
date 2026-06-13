@@ -73,7 +73,9 @@ function main(): void {
     settledCount = 0,
     totalCount = 0
   ): void {
-    const all = dedupByGameNum([...active, ...archived]);
+    const raw = [...active, ...archived];
+    const all = dedupByGameNum(raw);
+    const duplicatesRemoved = raw.length - all.length;
     const agg = aggregate(all);
     const tbody = section.querySelector("tbody.mthelper-body");
     if (!tbody) return;
@@ -87,7 +89,7 @@ function main(): void {
       const parts: string[] = [
         `Active: ${active.length}`,
         `Archived: ${archived.length}`,
-        `Total: ${agg.grand}`,
+        `Total: ${agg.grand}${duplicatesRemoved > 0 ? ` (Ignored Duplicates: ${duplicatesRemoved})` : ""}`,
       ];
       if (loading && totalCount > 0) parts.push(`loading ${settledCount}/${totalCount} months…`);
       if (errors > 0) parts.push(`${errors} fetch error(s)`);
@@ -132,7 +134,8 @@ function main(): void {
         }
         // Capture any archived tabs already expanded inline on the refreshed page.
         try {
-          for (const r of parseArchivedRows(freshDoc, refToken)) archivedRows.push(r);
+          const rows = parseArchivedRows(freshDoc, refToken);
+          for (const r of rows) archivedRows.push(r);
         } catch (err) {
           console.warn(TAG, "inline archived parse failed on refresh", err);
         }
@@ -143,7 +146,8 @@ function main(): void {
     } else {
       // Capture any archived tabs already expanded inline on the current page.
       try {
-        for (const r of parseArchivedRows(document, refToken)) archivedRows.push(r);
+        const rows = parseArchivedRows(document, refToken);
+        for (const r of rows) archivedRows.push(r);
       } catch (err) {
         console.warn(TAG, "inline archived parse failed", err);
       }
@@ -248,7 +252,7 @@ function collectExpandLinks(doc: Document): string[] {
 
 function renderShell(): string {
   const cols = BUCKETS.map(
-    (b) => `<td style="background-color:#E1E1E1"><b>${escapeHtml(b)}</b></td>`
+    (b) => `<td style="background-color:#E1E1E1"><b>${escapeHtml(bucketLabel(b))}</b></td>`
   ).join("");
   const span = BUCKETS.length + 2;
   return `
@@ -436,6 +440,10 @@ function renderInfoTable(agg: AggResult, datesLoading = false): string {
     </tr>`).join("");
 
   return `<table class="mthelper-info-table"><tbody>${rows}</tbody></table>`;
+}
+
+function bucketLabel(bucket: string): string {
+  return bucket === "U99" ? "Adult" : bucket;
 }
 
 function escapeHtml(s: string | number): string {

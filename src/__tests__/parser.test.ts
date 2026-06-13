@@ -60,11 +60,12 @@ describe("bucket", () => {
     ["BU19", "U19"],
     ["U17", "U19"],
     ["U18", "U19"],
+    ["U99", "U99"],
   ] as const)('maps "%s" → "%s"', (input, expected) => {
     expect(bucket(input)).toBe(expected);
   });
 
-  it.each([null, undefined, "", "Adult", "adult", "U20", "U99", "Senior", "Open"])(
+  it.each([null, undefined, "", "Adult", "adult", "U20", "Senior", "Open"])(
     'returns null for %s',
     (input) => {
       expect(bucket(input)).toBeNull();
@@ -182,10 +183,22 @@ describe("aggregate", () => {
   it("ignores games with Adult or unknown divisions", () => {
     const games: GameRow[] = [
       { gameNum: "1", division: "Adult", role: "Center" },
-      { gameNum: "2", division: "U99", role: "AR" },
+      { gameNum: "2", division: "U20", role: "AR" },
       { gameNum: "3", division: "Open", role: "Mentor" },
     ];
     expect(aggregate(games).grand).toBe(0);
+  });
+
+  it("counts U99 games in the U99 bucket", () => {
+    const games: GameRow[] = [
+      { gameNum: "1", division: "U99", role: "Center" },
+      { gameNum: "2", division: "BU99", role: "AR" },
+    ];
+    const agg = aggregate(games);
+    expect(agg.matrix["Center"]["U99"]).toBe(1);
+    expect(agg.matrix["AR"]["U99"]).toBe(1);
+    expect(agg.colTotals["U99"]).toBe(2);
+    expect(agg.grand).toBe(2);
   });
 
   it("returns null firstDate and lastDate when no games have dates", () => {
@@ -249,16 +262,30 @@ describe("aggregate", () => {
 // ---------- dedupByGameNum ----------
 
 describe("dedupByGameNum", () => {
-  it("removes rows with duplicate game numbers, keeping first occurrence", () => {
+  it("keeps rows that reuse a game number for different games", () => {
     const games: GameRow[] = [
-      { gameNum: "100", division: "BU10", role: "Center" },
+      { gameNum: "100", division: "BU10", role: "Center", date: new Date(2013, 8, 14) },
       { gameNum: "101", division: "GU12", role: "AR" },
-      { gameNum: "100", division: "BU14", role: "Mentor" }, // duplicate of 100
+      { gameNum: "100", division: "BU14", role: "Mentor", date: new Date(2017, 4, 13) },
+    ];
+    const result = dedupByGameNum(games);
+    expect(result).toHaveLength(3);
+    expect(result[0].role).toBe("Center");
+    expect(result[1].role).toBe("AR");
+    expect(result[2].role).toBe("Mentor");
+  });
+
+  it("removes exact duplicate game rows, keeping first occurrence", () => {
+    const date = new Date(2024, 3, 18);
+    const games: GameRow[] = [
+      { gameNum: "27733", division: "U99", role: "AR", date },
+      { gameNum: "27734", division: "U99", role: "Center", date: new Date(2024, 3, 25) },
+      { gameNum: "27733", division: "U99", role: "AR", date },
     ];
     const result = dedupByGameNum(games);
     expect(result).toHaveLength(2);
-    expect(result[0].role).toBe("Center");
-    expect(result[1].role).toBe("AR");
+    expect(result[0].gameNum).toBe("27733");
+    expect(result[1].gameNum).toBe("27734");
   });
 
   it("keeps all rows with null gameNum", () => {
@@ -362,7 +389,12 @@ describe("parseArchivedRows", () => {
     const doc = archivedDoc("Center: Doe, John (REG)<br>AR1: Smith, John (REG)");
     const rows = parseArchivedRows(doc, "Doe, John");
     expect(rows).toHaveLength(1);
-    expect(rows[0]).toEqual({ gameNum: "67890", division: "BU12", role: "Center", date: new Date(2024, 4, 10) });
+    expect(rows[0]).toEqual({
+      gameNum: "67890",
+      division: "BU12",
+      role: "Center",
+      date: new Date(2024, 4, 10),
+    });
   });
 
   it("extracts an AR role from the crew cell", () => {

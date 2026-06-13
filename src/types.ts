@@ -1,5 +1,5 @@
 export type Role = "Center" | "AR" | "Mentor";
-export type Bucket = "U8" | "U10" | "U12" | "U14" | "U16" | "U19";
+export type Bucket = "U8" | "U10" | "U12" | "U14" | "U16" | "U19" | "U99";
 
 export interface RefereeInfo {
   first: string;
