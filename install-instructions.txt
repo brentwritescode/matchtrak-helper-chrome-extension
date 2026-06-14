@@ -1,0 +1,9 @@
+1. In Google Chrome, go to https://chromewebstore.google.com/detail/matchtrak-helper/jhdcopgpkgngnfdldpgbifmabbkodnef
+
+2. Click the blue "Add to Chrome" button
+
+3. Click "Add extension" on the pop-up
+
+4. Go to a referee's profile page and you should see the new "Lifetime Stats" section
+
+If you have a referee whose stats you looked at previously, you may have to click the little "Refresh" button in the bottom right of the Lifetime Stats table on the page to get the newest data.
