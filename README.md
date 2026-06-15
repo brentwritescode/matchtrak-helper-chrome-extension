@@ -13,6 +13,17 @@ Pages targeted:
 
 ---
 
+## Installation
+
+1. Go to the [MatchTrak Helper page](https://chromewebstore.google.com/detail/matchtrak-helper/jhdcopgpkgngnfdldpgbifmabbkodnef) on the Chrome Web Store.
+2. Click the blue **Add to Chrome** button.
+3. Click **Add extension** on the pop-up.
+4. Go to a referee's profile page — you should see the new **Lifetime Stats** section.
+
+> If you've previously viewed a referee's stats, click the **Refresh** button in the bottom-right of the Lifetime Stats table to pull the newest data.
+
+---
+
 ## Prerequisites
 
 - [Node.js](https://nodejs.org/) v18 or later (includes `npm`)
