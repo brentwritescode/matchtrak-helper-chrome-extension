@@ -7,6 +7,7 @@ import {
   aggregate,
   dedupByGameNum,
   extractDivisionPositionFromRow,
+  canonicalProfileUrl,
   ROLES,
   BUCKETS,
 } from "../parser";
@@ -411,5 +412,39 @@ describe("parseArchivedRows", () => {
 
   it("returns empty array for pages with no archived rows", () => {
     expect(parseArchivedRows(makeDoc("<html><body></body></html>"), "Doe, John")).toHaveLength(0);
+  });
+});
+
+// ---------- canonicalProfileUrl ----------
+
+describe("canonicalProfileUrl", () => {
+  it("swaps a league-season subdomain to the canonical host, preserving path + query", () => {
+    expect(
+      canonicalProfileUrl(
+        "https://s11l889-26-spring.matchtrak.com/11/referee.nsf/open/98BBBA7AB7F2469F8825801D00788604?opendocument"
+      )
+    ).toBe(
+      "https://www.matchtrak.com/11/referee.nsf/open/98BBBA7AB7F2469F8825801D00788604?opendocument"
+    );
+  });
+
+  it("preserves the open-myref-profile view type", () => {
+    expect(
+      canonicalProfileUrl(
+        "https://s11l889-26-spring.matchtrak.com/11/referee.nsf/open-myref-profile/ABC123?opendocument"
+      )
+    ).toBe("https://www.matchtrak.com/11/referee.nsf/open-myref-profile/ABC123?opendocument");
+  });
+
+  it("returns null when already on the canonical host", () => {
+    expect(
+      canonicalProfileUrl(
+        "https://www.matchtrak.com/11/referee.nsf/open/ABC123?opendocument"
+      )
+    ).toBeNull();
+  });
+
+  it("returns null for malformed input", () => {
+    expect(canonicalProfileUrl("not a url")).toBeNull();
   });
 });

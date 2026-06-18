@@ -3,6 +3,26 @@ import type { Role, Bucket, RefereeInfo, GameRow, AggResult, Matrix } from "./ty
 export const ROLES: readonly Role[] = ["Center", "AR", "Mentor"];
 export const BUCKETS: readonly Bucket[] = ["U8", "U10", "U12", "U14", "U16", "U19", "U99"];
 
+// The main region site aggregates a referee's full history across circuits.
+// League-season subdomains (e.g. s11l889-26-spring.matchtrak.com) are separate
+// Domino replicas holding only a partial archive, so their totals are smaller.
+export const CANONICAL_HOST = "www.matchtrak.com";
+
+// Given the current profile URL, return the same profile on the canonical region
+// host (hostname swapped, path + query preserved so the view type, region, and
+// UNID all carry over). Returns null when already on the canonical host or when
+// the URL can't be parsed.
+export function canonicalProfileUrl(href: string): string | null {
+  try {
+    const u = new URL(href);
+    if (u.hostname === CANONICAL_HOST) return null;
+    u.hostname = CANONICAL_HOST;
+    return u.href;
+  } catch {
+    return null;
+  }
+}
+
 export function normalizeRole(label: string | null | undefined): Role | null {
   if (!label) return null;
   const s = String(label).trim();

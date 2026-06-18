@@ -63,6 +63,21 @@
   padding: 4px 8px;
 }
 
+.mthelper-stats .mthelper-source:not(:empty) {
+  box-sizing: border-box;
+  font-size: 12px;
+  color: #555;
+  font-family: Calibri, sans-serif;
+  text-align: left;
+  padding: 4px 8px;
+  margin-top: 4px;
+}
+
+.mthelper-stats .mthelper-source a {
+  color: #0000ff;
+  white-space: nowrap;
+}
+
 .mthelper-stats .mthelper-loading-indicator {
   display: none;
   align-items: center;

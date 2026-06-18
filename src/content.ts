@@ -6,6 +6,7 @@ import {
   parseArchivedRows,
   aggregate,
   dedupByGameNum,
+  canonicalProfileUrl,
 } from "./parser";
 import type { GameRow, AggResult } from "./types";
 
@@ -43,6 +44,31 @@ function main(): void {
     insertion.before.parentNode!.insertBefore(section, insertion.before);
   } else {
     insertion.after.parentNode!.insertBefore(section, insertion.after.nextSibling);
+  }
+
+  // On a league-season subdomain, these counts only cover that instance's
+  // partial archive. Point the referee at their full regional history on the
+  // main site (same profile, hostname swapped) — no fetch, no extra permissions.
+  const sourceEl = section.querySelector<HTMLElement>(".mthelper-source");
+  const canonicalUrl = canonicalProfileUrl(location.href);
+  if (sourceEl && canonicalUrl) {
+    sourceEl.innerHTML =
+      `These counts reflect games recorded in this league/season instance ` +
+      `(<a href="${escapeHtml(location.origin)}">${escapeHtml(location.hostname)}</a>) ` +
+      `and may not capture this referee's entire game history. ` +
+      `<a href="${escapeHtml(canonicalUrl)}">Click Here</a> to view the full history on www.matchtrak.com ` +
+      `(you may be asked to log in again).`;
+    // The note is a block sibling, so it would stretch to the page width.
+    // Pin its max-width to the stats table's rendered width (which depends on
+    // its data and changes loading→loaded) so the text wraps under the table.
+    const statsTable = section.querySelector<HTMLElement>(".mthelper-stats-table");
+    if (statsTable && typeof ResizeObserver !== "undefined") {
+      const sync = () => {
+        sourceEl.style.maxWidth = `${statsTable.offsetWidth}px`;
+      };
+      sync();
+      new ResizeObserver(sync).observe(statsTable);
+    }
   }
 
   let activeRows: GameRow[] = [];
@@ -282,6 +308,7 @@ function renderShell(): string {
         </tr>
       </tfoot>
     </table>
+    <div class="mthelper-source"></div>
     <div class="mthelper-loading-indicator"><span class="mthelper-spinner"></span> Loading…</div>
     <div class="mthelper-warning"></div>
   `;
