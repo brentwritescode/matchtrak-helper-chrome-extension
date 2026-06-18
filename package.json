@@ -8,7 +8,7 @@
     "type-check": "tsc --noEmit",
     "lint": "eslint src",
     "test": "jest",
-    "package": "npm run build && zip -r matchtrak-helper.zip manifest.json dist/content.js src/styles.css icons/ --exclude '*.DS_Store'"
+    "package": "npm run build && VERSION=$(node -p \"require('./manifest.json').version\") && zip -r matchtrak-helper-${VERSION}.zip manifest.json dist/content.js src/styles.css icons/ --exclude '*.DS_Store'"
   },
   "devDependencies": {
     "@eslint/js": "^9.0.0",
