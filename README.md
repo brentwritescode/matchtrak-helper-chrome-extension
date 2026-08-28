@@ -2,14 +2,15 @@
 
 Chrome extension that enhances [MatchTrak](https://www.matchtrak.com/) referee profile pages for AYSO Region 1455.
 
-**v0.1.0 feature:** Lifetime stats table. When a referee profile page loads, the extension parallel-fetches every archived-month link and renders a `Role × Age-Group` summary covering active + all archived games.
+**Lifetime stats table.** When a referee profile page loads, the extension parallel-fetches every archived-month link and renders a `Role × Age-Group` summary covering active + all archived games.
 
-Pages targeted:
+**Referee-list stats.** On the *Referees > Admin - Regional > by Name* admin list, the extension injects a compact horizontal stats panel above the table — one row for the type split (total / adult / youth) and one for a dynamic breakdown by certification level, all for the current page — and appends a bold **Total** row to the list itself summing the Games / Pending / Done columns.
 
-- `https://www.matchtrak.com/*/referee.nsf/open-myref-profile/*` (own profile)
-- `https://www.matchtrak.com/*/referee.nsf/open/*` (admin view)
-- `https://matchtrak.com/*/referee.nsf/open-myref-profile/*` (own profile, non-www)
-- `https://matchtrak.com/*/referee.nsf/open/*` (admin view, non-www)
+Pages targeted (on `www.matchtrak.com` and any `*.matchtrak.com` league-season subdomain):
+
+- `/*/referee.nsf/open-myref-profile/*` — own profile (lifetime stats)
+- `/*/referee.nsf/open/*` — admin profile view (lifetime stats)
+- `/*/referee.nsf/refs-admin-regional-by-name*` — admin referee list (referee-list stats)
 
 ---
 
@@ -129,7 +130,7 @@ PASS src/__tests__/parser.test.ts
   normalizeRole
     ✓ normalizes "center" → "Center"
     ...
-Tests: 65 passed, 65 total
+Tests: 87 passed, 87 total
 ```
 
 The test environment uses [jsdom](https://github.com/jsdom/jsdom), which simulates a browser DOM inside Node.js. This lets tests call `new DOMParser()`, create documents, and query elements — the same APIs the extension uses — without needing a real browser.

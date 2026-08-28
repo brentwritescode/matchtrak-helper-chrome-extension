@@ -1,4 +1,14 @@
-import type { Role, Bucket, RefereeInfo, GameRow, AggResult, Matrix } from "./types";
+import type {
+  Role,
+  Bucket,
+  RefereeInfo,
+  GameRow,
+  AggResult,
+  Matrix,
+  RefereeListRow,
+  RefereeList,
+  RefereeListSummary,
+} from "./types";
 
 export const ROLES: readonly Role[] = ["Center", "AR", "Mentor"];
 export const BUCKETS: readonly Bucket[] = ["U8", "U10", "U12", "U14", "U16", "U19", "U99"];
@@ -336,4 +346,140 @@ export function dedupByGameNum(games: GameRow[]): GameRow[] {
 function dedupKey(game: GameRow): string {
   const date = game.date instanceof Date ? game.date.toISOString().slice(0, 10) : "";
   return [game.gameNum, date, game.division, game.role].join("\u0000");
+}
+
+// ---- Admin referee-list view (refs-admin-regional-by-name) --------------
+
+// Each referee occupies one table row carrying an action-icon link to their
+// profile document: /<region>/referee.nsf/open/<UNID>?opendocument.
+const PROFILE_DOC_LINK_RE = /\/referee\.nsf\/open\/([0-9A-Fa-f]+)\?opendocument/i;
+
+// Locate the list table's header row and map each labelled column to its index.
+// The list is a Domino view whose exact columns vary by region and sub-view, so
+// callers read cells by label ("Certification", "Youth", …) rather than by a
+// fixed position. Labels are lower-cased; unlabelled spacer <th> cells are
+// skipped but still counted in `columnCount`.
+function findRefereeListColumns(doc: Document): {
+  columns: Map<string, number>;
+  columnCount: number;
+} {
+  const columns = new Map<string, number>();
+  for (const tr of doc.querySelectorAll("tr")) {
+    const ths = Array.from(tr.children).filter((c) => c.tagName === "TH");
+    if (ths.length < 3) continue;
+    const labels = ths.map((th) => cellText(th).toLowerCase());
+    if (!labels.includes("referee")) continue;
+    labels.forEach((label, i) => {
+      if (label && !columns.has(label)) columns.set(label, i);
+    });
+    if (columns.size) return { columns, columnCount: ths.length };
+  }
+  return { columns, columnCount: 0 };
+}
+
+function readListCell(
+  tds: Element[],
+  cols: Map<string, number>,
+  label: string
+): string | null {
+  const i = cols.get(label);
+  if (i === undefined || i >= tds.length) return null;
+  const t = cellText(tds[i]);
+  return t === "" ? null : t;
+}
+
+function toInt(s: string | null): number {
+  if (!s) return 0;
+  const m = /-?\d+/.exec(s.replace(/,/g, ""));
+  return m ? parseInt(m[0], 10) : 0;
+}
+
+// Parse the admin referee list into one row per referee plus the column layout
+// of the list table. Rows are de-duped by profile UNID (first occurrence wins).
+//
+// The list table is wrapped in layout tables (<table><tr><td>…</td></tr>), so we
+// can't just scan every <tr> — the wrapper rows contain every profile link as a
+// descendant and would each look like a (single-cell) referee row. Instead, walk
+// out from each profile link to its innermost enclosing <tr>.
+export function parseRefereeList(doc: Document): RefereeList {
+  const { columns: cols, columnCount } = findRefereeListColumns(doc);
+  const seenUnid = new Set<string>();
+  const seenRow = new Set<Element>();
+  const rows: RefereeListRow[] = [];
+
+  for (const link of doc.querySelectorAll<HTMLAnchorElement>(
+    'a[href*="referee.nsf/open/"][href*="opendocument"]'
+  )) {
+    const tr = link.closest("tr");
+    if (!tr || seenRow.has(tr)) continue;
+    seenRow.add(tr);
+
+    const m = PROFILE_DOC_LINK_RE.exec(link.getAttribute("href") ?? "");
+    const unid = m ? m[1].toUpperCase() : null;
+    if (unid) {
+      if (seenUnid.has(unid)) continue;
+      seenUnid.add(unid);
+    }
+
+    const tds = directTds(tr);
+    rows.push({
+      unid,
+      certification: readListCell(tds, cols, "certification"),
+      youth: /^yes$/i.test(readListCell(tds, cols, "youth") ?? ""),
+      games: toInt(readListCell(tds, cols, "games")),
+      pending: toInt(readListCell(tds, cols, "pending")),
+      done: toInt(readListCell(tds, cols, "done")),
+    });
+  }
+
+  return { rows, columns: cols, columnCount };
+}
+
+// Count of referees shown on an admin list view.
+export function countRefereeRows(doc: Document): number {
+  return parseRefereeList(doc).rows.length;
+}
+
+// Certification is an ordinal progression, but the set of levels differs by
+// region (AYSO Section 1 uses these four; others may add e.g. an "8U" level).
+// Known levels sort in progression order; anything else sorts after them,
+// alphabetically — so unfamiliar levels still show, just at the end.
+const CERT_ORDER = ["regional", "intermediate", "advanced", "national"];
+
+function certRank(level: string): number {
+  const i = CERT_ORDER.indexOf(level.toLowerCase());
+  return i === -1 ? CERT_ORDER.length : i;
+}
+
+export function summarizeRefereeList(rows: RefereeListRow[]): RefereeListSummary {
+  let youth = 0;
+  let games = 0;
+  let pending = 0;
+  let done = 0;
+  const certCounts = new Map<string, number>();
+
+  for (const r of rows) {
+    if (r.youth) youth += 1;
+    games += r.games;
+    pending += r.pending;
+    done += r.done;
+    const level = r.certification ?? "Unspecified";
+    certCounts.set(level, (certCounts.get(level) ?? 0) + 1);
+  }
+
+  const byCertification = [...certCounts.entries()]
+    .map(([level, count]) => ({ level, count }))
+    .sort(
+      (a, b) => certRank(a.level) - certRank(b.level) || a.level.localeCompare(b.level)
+    );
+
+  return {
+    total: rows.length,
+    youth,
+    adult: rows.length - youth,
+    byCertification,
+    games,
+    pending,
+    done,
+  };
 }

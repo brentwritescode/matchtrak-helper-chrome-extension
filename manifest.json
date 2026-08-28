@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "MatchTrak Helper",
-  "version": "0.2.2",
+  "version": "0.3.0",
   "description": "Adds extra features to the MatchTrak web experience to enable better referee usability.",
   "icons": {
     "16": "icons/icon16.png",
@@ -14,7 +14,8 @@
     {
       "matches": [
         "https://*.matchtrak.com/*/referee.nsf/open-myref-profile/*",
-        "https://*.matchtrak.com/*/referee.nsf/open/*"
+        "https://*.matchtrak.com/*/referee.nsf/open/*",
+        "https://*.matchtrak.com/*/referee.nsf/refs-admin-regional-by-name*"
       ],
       "js": ["dist/content.js"],
       "css": ["src/styles.css"],

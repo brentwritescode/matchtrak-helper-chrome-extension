@@ -8,10 +8,13 @@ import {
   dedupByGameNum,
   extractDivisionPositionFromRow,
   canonicalProfileUrl,
+  countRefereeRows,
+  parseRefereeList,
+  summarizeRefereeList,
   ROLES,
   BUCKETS,
 } from "../parser";
-import type { GameRow } from "../types";
+import type { GameRow, RefereeListRow } from "../types";
 
 // ---------- normalizeRole ----------
 
@@ -446,5 +449,205 @@ describe("canonicalProfileUrl", () => {
 
   it("returns null for malformed input", () => {
     expect(canonicalProfileUrl("not a url")).toBeNull();
+  });
+});
+
+// ---------- countRefereeRows ----------
+
+describe("countRefereeRows", () => {
+  // Mirrors the real admin-list markup: an unquoted action-icon link per row.
+  const row = (unid: string) =>
+    `<tr valign="top"><td>` +
+    `<a href=/11/referee.nsf/open/${unid}?opendocument><img src=/icons/actn029.gif></a>` +
+    `</td><td><font size="2" color="#0000ff" face="Calibri">Referee ${unid}</font></td></tr>`;
+
+  function listDoc(unids: string[], extra = ""): Document {
+    return makeDoc(
+      `<html><body><table>${unids.map(row).join("")}</table>${extra}</body></html>`
+    );
+  }
+
+  it("counts one per distinct referee profile link", () => {
+    const doc = listDoc([
+      "0BA1B9050064390C88258CF2007A1461",
+      "C66D9355D0CEB85388258CF10052E833",
+      "99D56D686581BC6B88258ADF0056AC61",
+    ]);
+    expect(countRefereeRows(doc)).toBe(3);
+  });
+
+  it("returns 0 when the page has no referee profile links", () => {
+    const doc = makeDoc(`
+      <html><body>
+        <a href="/11/referee.nsf/refs-admin-regional-by-name?openview&count=500">by Referee</a>
+        <a href="/11/referee.nsf/ref?openform">New Referee</a>
+        <a href="">next</a>
+      </body></html>
+    `);
+    expect(countRefereeRows(doc)).toBe(0);
+  });
+
+  it("de-dupes a UNID that appears more than once, case-insensitively", () => {
+    const doc = listDoc([
+      "ABC123ABC123ABC123ABC123ABC12345",
+      "abc123abc123abc123abc123abc12345",
+      "DEF456DEF456DEF456DEF456DEF45678",
+    ]);
+    expect(countRefereeRows(doc)).toBe(2);
+  });
+
+  it("ignores view links and the expand/collapse pager", () => {
+    const doc = listDoc(["1234ABCD1234ABCD1234ABCD1234ABCD"], `
+      <a href="/11/referee.nsf/refs-admin-regional-by-name?OpenView&Count=500&ExpandView&RestrictToCategory=R1455">expand</a>
+      <a href="/11/referee.nsf/refs-admin-regional-by-name?OpenView&Count=500&CollapseView">collapse</a>
+      <a href="" onclick="return _doClick('88257C7C007909CD.abcdef', this, null)">next</a>
+    `);
+    expect(countRefereeRows(doc)).toBe(1);
+  });
+});
+
+// ---------- parseRefereeList / summarizeRefereeList ----------
+
+function adminListDoc(
+  refs: Array<{
+    unid: string;
+    cert?: string;
+    youth?: boolean;
+    games?: number;
+    pending?: number;
+    done?: number;
+  }>
+): Document {
+  // Header with unlabelled spacer <th> cells between real columns, mirroring
+  // the real Domino view so column-by-label mapping is exercised.
+  const header =
+    `<tr><th>Open<br><hr></th><th></th>` +
+    `<th>Referee<br><hr></th><th></th>` +
+    `<th>Certification<br><hr></th><th></th>` +
+    `<th>Youth<br><hr></th><th></th>` +
+    `<th>Games <br><hr></th><th>Pending <br><hr></th><th>Done <br><hr></th></tr>`;
+  const body = refs
+    .map(
+      (r) =>
+        `<tr valign="top">` +
+        `<td><a href=/11/referee.nsf/open/${r.unid}?opendocument><img></a></td><td></td>` +
+        `<td><font size="2" color="#0000ff">Ref ${r.unid}</font></td><td></td>` +
+        `<td>${r.cert ?? ""}</td><td></td>` +
+        `<td>${r.youth ? "Yes" : ""}</td><td></td>` +
+        `<td>${r.games ?? 0}</td><td>${r.pending ?? 0}</td><td>${r.done ?? 0}</td>` +
+        `</tr>`
+    )
+    .join("");
+  return makeDoc(`<html><body><table>${header}${body}</table></body></html>`);
+}
+
+describe("parseRefereeList", () => {
+  it("reads certification, youth, and assignment columns by header label", () => {
+    const doc = adminListDoc([
+      { unid: "a1", cert: "Regional", youth: true, games: 3, pending: 2, done: 1 },
+      { unid: "b2", cert: "National", youth: false, games: 5, pending: 0, done: 5 },
+    ]);
+    const { rows, columns, columnCount } = parseRefereeList(doc);
+    expect(rows).toEqual([
+      { unid: "A1", certification: "Regional", youth: true, games: 3, pending: 2, done: 1 },
+      { unid: "B2", certification: "National", youth: false, games: 5, pending: 0, done: 5 },
+    ]);
+    expect(columns.get("certification")).toBe(4);
+    expect(columns.get("youth")).toBe(6);
+    expect(columns.get("games")).toBe(8);
+    expect(columnCount).toBe(11);
+  });
+
+  it("treats a blank Youth cell as adult and blank Certification as null", () => {
+    const doc = adminListDoc([{ unid: "c3" }]);
+    expect(parseRefereeList(doc).rows[0]).toEqual({
+      unid: "C3",
+      certification: null,
+      youth: false,
+      games: 0,
+      pending: 0,
+      done: 0,
+    });
+  });
+
+  it("ignores the layout <tr> wrappers the list table is nested in", () => {
+    // MatchTrak nests the list table inside <table><tr><td>…</td></tr>. Those
+    // wrapper rows contain every profile link as a descendant; a naive scan
+    // would treat the first as a single-cell referee row and, via UNID de-dup,
+    // drop the real first referee.
+    const inner = adminListDoc([
+      { unid: "a1", cert: "Regional", youth: false, games: 1, pending: 1, done: 0 },
+      { unid: "b2", cert: "National", youth: true, games: 2, pending: 0, done: 2 },
+    ]).querySelector("table")!.outerHTML;
+    const doc = makeDoc(
+      `<html><body><table width="100%"><tr valign="top"><td>${inner}</td></tr></table></body></html>`
+    );
+    const { rows } = parseRefereeList(doc);
+    expect(rows).toEqual([
+      { unid: "A1", certification: "Regional", youth: false, games: 1, pending: 1, done: 0 },
+      { unid: "B2", certification: "National", youth: true, games: 2, pending: 0, done: 2 },
+    ]);
+  });
+
+  it("still returns rows (with no columns) when there is no header row", () => {
+    const doc = makeDoc(
+      `<html><body><table><tr><td>` +
+        `<a href=/11/referee.nsf/open/d4?opendocument><img></a></td></tr></table></body></html>`
+    );
+    const { rows, columns, columnCount } = parseRefereeList(doc);
+    expect(rows).toHaveLength(1);
+    expect(columns.size).toBe(0);
+    expect(columnCount).toBe(0);
+    expect(rows[0].certification).toBeNull();
+  });
+});
+
+describe("summarizeRefereeList", () => {
+  const mk = (o: Partial<RefereeListRow>): RefereeListRow => ({
+    unid: null,
+    certification: null,
+    youth: false,
+    games: 0,
+    pending: 0,
+    done: 0,
+    ...o,
+  });
+
+  it("splits youth vs adult and totals the assignment columns", () => {
+    const s = summarizeRefereeList([
+      mk({ youth: true, games: 2, pending: 1, done: 1 }),
+      mk({ youth: false, games: 3, pending: 0, done: 3 }),
+      mk({ youth: false, games: 5, pending: 5, done: 0 }),
+    ]);
+    expect(s.total).toBe(3);
+    expect(s.youth).toBe(1);
+    expect(s.adult).toBe(2);
+    expect(s.games).toBe(10);
+    expect(s.pending).toBe(6);
+    expect(s.done).toBe(4);
+  });
+
+  it("counts certification levels dynamically, ordering known levels by progression", () => {
+    const s = summarizeRefereeList([
+      mk({ certification: "National" }),
+      mk({ certification: "Regional" }),
+      mk({ certification: "Regional" }),
+      mk({ certification: "Advanced" }),
+      mk({ certification: "8U" }), // unfamiliar level from another region
+    ]);
+    expect(s.byCertification).toEqual([
+      { level: "Regional", count: 2 },
+      { level: "Advanced", count: 1 },
+      { level: "National", count: 1 },
+      { level: "8U", count: 1 },
+    ]);
+  });
+
+  it("labels referees with no certification as 'Unspecified', sorted after known levels", () => {
+    const s = summarizeRefereeList([mk({}), mk({ certification: "Regional" })]);
+    expect(s.byCertification).toEqual([
+      { level: "Regional", count: 1 },
+      { level: "Unspecified", count: 1 },
+    ]);
   });
 });

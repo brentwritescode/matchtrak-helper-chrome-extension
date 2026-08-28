@@ -7,18 +7,25 @@ import {
   aggregate,
   dedupByGameNum,
   canonicalProfileUrl,
+  parseRefereeList,
+  summarizeRefereeList,
 } from "./parser";
-import type { GameRow, AggResult } from "./types";
+import type { GameRow, AggResult, RefereeListSummary } from "./types";
 
 const TAG = "[MTHelper]";
 const ROOT_ID = "mthelper-root";
+const STATS_ROOT_ID = "mthelper-refstats-root";
 const CACHE_TTL_MS = 14 * 24 * 60 * 60 * 1000; // 14 days
 const MAX_RETRIES = 3;
 const BASE_DELAY_MS = 1000;
 const CONCURRENCY = 15;
 
-if (!document.getElementById(ROOT_ID)) {
-  main();
+if (!document.getElementById(ROOT_ID) && !document.getElementById(STATS_ROOT_ID)) {
+  if (isAdminRefListPage()) {
+    injectRefereeStats();
+  } else {
+    main();
+  }
 }
 
 function main(): void {
@@ -229,6 +236,145 @@ function main(): void {
 }
 
 // ---------- helpers ----------
+
+// The "Referee Profile - Administration" list (Referees > Admin - Regional >
+// by Name, plus its compliance sub-views). This is an admin's working list of
+// active referees, so surface some at-a-glance stats.
+function isAdminRefListPage(): boolean {
+  return /\/referee\.nsf\/refs-admin-regional-by-name/i.test(
+    location.pathname + location.search
+  );
+}
+
+function injectRefereeStats(): void {
+  const { rows, columns, columnCount } = parseRefereeList(document);
+  if (rows.length === 0) {
+    console.warn(TAG, "referee list: no referee rows found — nothing to summarise");
+    return;
+  }
+
+  const table = findRefereeListTable();
+  if (!table || !table.parentNode) {
+    console.warn(TAG, "referee list: could not find the list table");
+    return;
+  }
+
+  const summary = summarizeRefereeList(rows);
+
+  // Breakdown panel above the list.
+  const section = document.createElement("section");
+  section.id = STATS_ROOT_ID;
+  section.className = "mthelper-refstats";
+  section.innerHTML = renderRefereeBreakdown(summary, columns);
+  table.parentNode.insertBefore(section, table);
+
+  // MatchTrak's stylesheet forces every table to full page width; an inline
+  // width overrides it. The panel wants to be as wide as its content, but no
+  // wider than the list — past that, the chip row wraps.
+  const panel = section.querySelector<HTMLElement>(".mthelper-refstats-table");
+  const listTable = table as HTMLElement;
+  if (panel) {
+    panel.style.width = "max-content";
+    if (typeof ResizeObserver !== "undefined") {
+      const sync = () => {
+        panel.style.maxWidth = `${listTable.offsetWidth}px`;
+      };
+      sync();
+      new ResizeObserver(sync).observe(listTable);
+    }
+  }
+
+  // Games / Pending / Done totals belong with the columns they sum — a bold
+  // "Total" row appended to the list table itself.
+  appendListTotalRow(table, columns, columnCount, summary);
+
+  console.log(TAG, `referee list: ${summary.total} referee(s) on this page`);
+}
+
+// The list table is the one holding the per-referee profile links. Walk up
+// from the first such link to its nearest enclosing <table>.
+function findRefereeListTable(): Element | null {
+  const link = document.querySelector<HTMLAnchorElement>(
+    'a[href*="referee.nsf/open/"][href*="opendocument"]'
+  );
+  let n: Element | null = link;
+  while (n && n.tagName !== "TABLE") n = n.parentElement;
+  return n;
+}
+
+// Compact "type" + "certification" breakdown shown above the list, laid out
+// horizontally: one row per grouping, its counts as inline chips. The "By cert"
+// row is only added when the view carries that column.
+function renderRefereeBreakdown(s: RefereeListSummary, columns: Map<string, number>): string {
+  const chip = (label: string, value: number) =>
+    `<span class="mthelper-refstats-chip">${escapeHtml(label)}&nbsp;<b>${value}</b></span>`;
+  const groupRow = (label: string, chips: string[]) =>
+    `<tr><td class="mthelper-refstats-label">${escapeHtml(label)}</td>` +
+    `<td class="mthelper-refstats-chips">${chips.join("")}</td></tr>`;
+
+  const typeChips = [chip("Total", s.total)];
+  if (columns.has("youth")) {
+    typeChips.push(chip("Adult", s.adult), chip("Youth", s.youth));
+  }
+
+  const rows = [
+    `<tr><td colspan="2" class="mthelper-refstats-title">Referee Totals</td></tr>`,
+    groupRow("By type", typeChips),
+  ];
+
+  if (columns.has("certification")) {
+    const certChips = [
+      chip("Total", s.total),
+      ...s.byCertification.map((c) => chip(c.level, c.count)),
+    ];
+    rows.push(groupRow("By cert", certChips));
+  }
+
+  return (
+    `<table class="mthelper-refstats-table"><tbody>${rows.join("")}</tbody></table>` +
+    `<div class="mthelper-refstats-note">Counts cover only the referees listed on the current page.</div>`
+  );
+}
+
+// Append a bold "Total" row to the real list table: "Total" in the Referee
+// column, and the summed Games / Pending / Done in their columns. No-op when
+// the view has none of those columns, or if the row is already present.
+function appendListTotalRow(
+  table: Element,
+  columns: Map<string, number>,
+  columnCount: number,
+  s: RefereeListSummary
+): void {
+  const hasAssignments =
+    columns.has("games") || columns.has("pending") || columns.has("done");
+  if (!hasAssignments || columnCount === 0) return;
+  if (table.querySelector(".mthelper-list-total")) return;
+
+  const refRows = Array.from(table.querySelectorAll("tr")).filter((tr) =>
+    tr.querySelector('a[href*="referee.nsf/open/"][href*="opendocument"]')
+  );
+  const lastRow = refRows[refRows.length - 1];
+  if (!lastRow) return;
+
+  const font = (inner: string) => `<font size="2" face="Calibri">${inner}</font>`;
+  const nameIdx = columns.get("referee") ?? 0;
+  const cellFor = (i: number): string => {
+    if (i === nameIdx) return font("<b>Total</b>");
+    if (columns.get("games") === i) return font(`<b>${s.games}</b>`);
+    if (columns.get("pending") === i) return font(`<b>${s.pending}</b>`);
+    if (columns.get("done") === i) return font(`<b>${s.done}</b>`);
+    return "";
+  };
+
+  const tr = document.createElement("tr");
+  tr.className = "mthelper-list-total";
+  tr.setAttribute("valign", "top");
+  tr.title = "Sum across the referees listed on this page";
+  let html = "";
+  for (let i = 0; i < columnCount; i++) html += `<td>${cellFor(i)}</td>`;
+  tr.innerHTML = html;
+  lastRow.after(tr);
+}
 
 function findInsertionPoint(): { before: Element } | { after: Element } | null {
   const headers = Array.from(document.querySelectorAll<HTMLTableCellElement>('td[bgcolor="#C0E1FF"]'));

@@ -112,3 +112,67 @@
   padding: 4px 8px;
   margin-top: 4px;
 }
+
+/* Referee-list stats panel injected above the admin referee list — laid out
+   horizontally (one row per grouping). content.ts sizes it to its content but
+   caps the width at the list's, so the chip row wraps rather than overflowing. */
+.mthelper-refstats {
+  margin: 10px 0 4px;
+}
+
+.mthelper-refstats .mthelper-refstats-table {
+  border-collapse: collapse;
+}
+
+.mthelper-refstats .mthelper-refstats-table td {
+  padding: 4px 10px;
+  font-size: small;
+  font-family: Calibri, sans-serif;
+  border: 1px solid #ededed;
+  vertical-align: top;
+}
+
+.mthelper-refstats .mthelper-refstats-title {
+  background-color: #C0E1FF;
+  font-weight: bold;
+}
+
+.mthelper-refstats .mthelper-refstats-label {
+  background-color: #F5F5F5;
+  font-style: italic;
+  white-space: nowrap;
+}
+
+.mthelper-refstats .mthelper-refstats-chips {
+  background-color: #EAF4FF;
+}
+
+.mthelper-refstats .mthelper-refstats-chip {
+  display: inline-block;
+  white-space: nowrap;
+}
+
+.mthelper-refstats .mthelper-refstats-chip + .mthelper-refstats-chip {
+  margin-left: 12px;
+  padding-left: 12px;
+  border-left: 1px solid #b9d4ef;
+}
+
+.mthelper-refstats .mthelper-refstats-chip b {
+  font-variant-numeric: tabular-nums;
+}
+
+.mthelper-refstats .mthelper-refstats-note {
+  margin-top: 3px;
+  font-size: 11px;
+  font-style: italic;
+  font-family: Calibri, sans-serif;
+  color: #5F5F5F;
+}
+
+/* Bold "Total" row appended to MatchTrak's own referee list table. */
+.mthelper-list-total td {
+  padding: 3px 2px;
+  border-top: 2px solid #b5b5b5;
+  background-color: #EAF4FF;
+}
